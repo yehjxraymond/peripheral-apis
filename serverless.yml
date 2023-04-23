@@ -45,12 +45,6 @@ resources:
             AttributeType: S
           - AttributeName: SK
             AttributeType: S
-          - AttributeName: APK
-            AttributeType: S
-          - AttributeName: Count
-            AttributeType: N
-          - AttributeName: ttl
-            AttributeType: N
           # Not adding the generic `attribute` attribute
         KeySchema:
           - AttributeName: PK
