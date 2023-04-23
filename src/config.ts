@@ -31,6 +31,7 @@ const generateNetworks = () => {
 };
 const generateConfig = () => ({
   appName: "govn",
+  tableName: process.env.DYNAMODB_TABLE_NAME || "",
   networks: generateNetworks(),
 });
 

@@ -89,6 +89,14 @@ functions:
           path: /token_supply/{network}/{token}
           method: get
           cors: true
+  enableTokenSupply:
+    handler: src/functionHandlers/tokenSupply/enableToken/index.handler
+    events:
+      - http:
+          path: /token_supply/{network}/{token}
+          method: post
+          cors: true
+          private: true
 custom:
   webpack:
     includeModules: true
