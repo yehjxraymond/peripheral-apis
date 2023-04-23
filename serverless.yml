@@ -1,0 +1,116 @@
+frameworkVersion: "3.21.0"
+
+service: govn
+provider:
+  name: aws
+  runtime: nodejs16.x
+  timeout: 30 # optional, in seconds, default is 6
+  stage: ${opt:stage, "dev"}
+  region: ${opt:region, "ap-southeast-1"}
+  environment:
+    DYNAMODB_TABLE_NAME: govn-${opt:stage, "dev"}
+  tracing:
+    lambda: true
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - xray:PutTraceSegments
+            - xray:PutTelemetryRecords
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+          Resource: 
+            - "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE_NAME}"
+            - "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.DYNAMODB_TABLE_NAME}/index/*"
+  apiGateway:
+      apiKeys:
+        - ${self:provider.stage}-functions-api-key
+	
+resources:
+  Resources:
+    referralTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:provider.environment.DYNAMODB_TABLE_NAME}
+        AttributeDefinitions:
+          - AttributeName: PK
+            AttributeType: S
+          - AttributeName: SK
+            AttributeType: S
+          - AttributeName: APK
+            AttributeType: S
+          - AttributeName: Count
+            AttributeType: N
+          # Not adding the generic `attribute` attribute
+        KeySchema:
+          - AttributeName: PK
+            KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
+        TimeToLiveSpecification:
+          AttributeName: ttl
+          Enabled: true
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+        GlobalSecondaryIndexes:
+          - IndexName: FlippedIndex
+            KeySchema:
+              - AttributeName: SK
+                KeyType: HASH
+              - AttributeName: PK
+                KeyType: RANGE
+            Projection:
+              ProjectionType: 'ALL'
+            ProvisionedThroughput:
+              ReadCapacityUnits: 1
+              WriteCapacityUnits: 1
+
+functions:
+  debug:
+    handler: src/functionHandlers/debug/index.handler
+    events:
+      - http:
+          path: /debug
+          method: get
+          cors: true
+  getTokenSupply:
+    handler: src/functionHandlers/tokenSupply/getTokenSupply/index.handler
+    events:
+      - http:
+          path: /token_supply/{network}/{token}
+          method: get
+          cors: true
+custom:
+  webpack:
+    includeModules: true
+  customDomainEnabled:
+    production: true
+  customDomain:
+    domainName: api.govn.io
+    basePath: ""
+    stage: production
+    enabled: ${self:custom.customDomainEnabled.${opt:stage, "dev"}, false}
+  dynamodb:
+    # If you only want to use DynamoDB Local in some stages, declare them here
+    stages:
+      - dev
+    start:
+      port: 8000
+      inMemory: true
+      migrate: true
+
+plugins:
+  - serverless-webpack
+  - serverless-dotenv-plugin
+  - serverless-dynamodb-local
+  - serverless-offline
+  - serverless-domain-manager
